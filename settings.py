@@ -7,8 +7,8 @@ CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = make_directory_if_not_exists(os.path.join(CUR_DIR, 'output'))
 INPUT_DIR = os.path.join(CUR_DIR, 'input')
 
-CREDENTIAL_PATH = os.path.join(CUR_DIR, 'utils', 'credential', 'Credentials-fdf02670129a.json')
+CREDENTIAL_PATH = os.path.join(CUR_DIR, 'utils', 'credential', 'OCR label project-ff37d8323b53.json')
 SAMPLE_SIZE = 4
 LINE_RATIO = 0.02
 
-LOCAL = True
+LOCAL = False

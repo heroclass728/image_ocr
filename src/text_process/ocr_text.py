@@ -5,7 +5,7 @@ import cv2
 
 from utils.folder_file_manager import save_file
 from utils.google_ocr import GoogleVisionAPI
-from utils.image_processing import separate_frame_by_size
+from utils.image_processing import separate_frame_by_size, extract_table_line
 from settings import LOCAL, CUR_DIR, LINE_RATIO
 
 
@@ -39,14 +39,16 @@ class TextProcess:
         word_coordinates = []
         words = []
         text = ""
-        frame = cv2.imread(path_)
-        line_margin = int(LINE_RATIO * frame.shape[0])
+        table_line = 0
+        line_margin = 40
 
         if part_idx == 0:
-            for _json in json_content_["textAnnotations"][1:]:
-                if "198" in _json["description"]:
-                    header_line = _json["boundingPoly"]["vertices"][3]["y"]
-                    break
+            crop_left = json_content_["textAnnotations"][0]["boundingPoly"]["vertices"][0]["x"]
+            crop_right = json_content_["textAnnotations"][0]["boundingPoly"]["vertices"][1]["x"]
+            crop_top = json_content_["textAnnotations"][0]["boundingPoly"]["vertices"][0]["y"]
+            crop_bottom = json_content_["textAnnotations"][0]["boundingPoly"]["vertices"][3]["y"]
+            table_line = extract_table_line(frame_path=path_, left=crop_left, right=crop_right, top=crop_top,
+                                            bottom=crop_bottom)
 
         for _json in json_content_["textAnnotations"][1:]:
 
@@ -84,8 +86,11 @@ class TextProcess:
             x_sorted = sorted(zip(word_list, word_coordinate_list), key=lambda j: j[1][0])
 
             for x_word, x_word_coordinate in x_sorted:
-                if part_idx == 0 and x_word_coordinate < table_line:
-                    text += x_word + " "
+                if part_idx == 0 and x_word_coordinate[1] < table_line:
+                    if x_word.isalpha() or x_word.isdigit():
+                        text += x_word + " "
+                    else:
+                        text = text[:text.rfind(" ")] + x_word + " "
 
                 else:
                     if x_word.isdigit() or x_word.isalpha():
@@ -106,5 +111,5 @@ if __name__ == '__main__':
     with open('/media/mensa/Data/Task/ScannedOCR/temp/temp_00001-ksh1987_l_temp_0.json') as f:
         json_content = json.load(f)
 
-    name_ = text_processor.extract_text_from_json(json_content, path)
+    name_ = text_processor.extract_text_from_json(json_content_=json_content, path_=path, part_idx=0)
     print(name_)
