@@ -3,13 +3,11 @@ import os
 import ntpath
 
 from settings import INPUT_DIR, OUTPUT_DIR
-from src.text_process.ocr_text import TextProcess
+from src.text_process.ocr_text import process_ocr_text
 from utils.folder_file_manager import log_print, extract_file_name, save_file
 
 
 if __name__ == '__main__':
-
-    text_process = TextProcess()
 
     input_image_path = glob.glob(os.path.join(INPUT_DIR, "*.*"))
     processed_files = glob.glob(os.path.join(OUTPUT_DIR, "*.*"))
@@ -28,7 +26,7 @@ if __name__ == '__main__':
 
         print("Process {}-({} / {})".format(path, i + 1, total_lens))
         try:
-            frame_content = text_process.process_ocr_text(frame_path=path)
+            frame_content = process_ocr_text(frame_path=path)
             txt_file_path = os.path.join(OUTPUT_DIR, "{}.txt".format(file_name))
             save_file(content=frame_content, filename=txt_file_path, method='w')
             log_print(info_str=path + "\n" + "Successfully processed")
