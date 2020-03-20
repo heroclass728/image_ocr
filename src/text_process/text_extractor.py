@@ -4,7 +4,7 @@ import numpy as np
 from src.digit_process.image_processing import extract_table_line
 from src.digit_process.digit_templator import extract_digits
 from src.text_process.text_sorter import sort_y_coordinate
-from settings import LINE_SPACING, LETTER_INTERVAL, WORD_INTERVAL
+from settings import LINE_SPACING, WORD_INTERVAL
 
 
 def extract_text_from_json(json_content_, part_idx, path_):
@@ -27,13 +27,10 @@ def extract_text_from_json(json_content_, part_idx, path_):
 
     letter_column, split_line = split_letter_digit(base_line=table_line, content=json_content_)
     origin_x = letter_column[0]["boundingPoly"]["vertices"][0]["x"]
-    grad = abs(letter_column[0]["boundingPoly"]["vertices"][0]["y"] -
-               letter_column[0]["boundingPoly"]["vertices"][1]["y"]) / \
-           abs(letter_column[0]["boundingPoly"]["vertices"][0]["x"] -
-               letter_column[0]["boundingPoly"]["vertices"][1]["x"])
+    text_grad = calculate_image_gradient(grad_content=letter_column)
 
     for _json in letter_column:
-        word_coordinates.append(get_word_coordinate(word_dict=_json, coordinate_grad=grad, origin_x=origin_x))
+        word_coordinates.append(get_word_coordinate(word_dict=_json, coordinate_grad=text_grad, origin_x=origin_x))
         words.append(_json["description"])
 
     digits, line_spacing, letter_width = extract_digits(frame_path=path_, x_base_line=split_line,
@@ -42,7 +39,7 @@ def extract_text_from_json(json_content_, part_idx, path_):
     for digit in digits:
         x = split_line + digit[0]
         y = table_line + digit[1]
-        y -= int((x - origin_x) * grad)
+        y += int((x - origin_x) * text_grad)
         word_coordinates.append([x, y])
         words.append(digit[2])
 
@@ -61,16 +58,14 @@ def extract_text_from_json(json_content_, part_idx, path_):
                     text = text[:text.rfind(" ")] + x_word + " "
 
             else:
-                if i == 0:
-                    text += x_word
+                if i == 0 or i == len(x_sorted) - 1:
+                    text += x_word + "; "
                 else:
-                    # if i == len(x_sorted) - 1:
-                    #     text += ";"
-                    if abs(x_word_coordinate[0] - x_sorted[i - 1][1][0]) < letter_width:
+                    if abs(x_word_coordinate[0] - x_sorted[i + 1][1][0]) < letter_width:
                         continue
                     else:
-                        if abs(x_word_coordinate[0] - x_sorted[i - 1][1][0]) > WORD_INTERVAL:
-                            text += ";" + " " + x_word
+                        if abs(x_word_coordinate[0] - x_sorted[i + 1][1][0]) > WORD_INTERVAL:
+                            text += x_word + "; "
                         else:
                             text += x_word
 
@@ -79,10 +74,10 @@ def extract_text_from_json(json_content_, part_idx, path_):
     return text
 
 
-def get_word_coordinate(word_dict, coordinate_grad=0, origin_x=0):
+def get_word_coordinate(word_dict, coordinate_grad=0.0, origin_x=0):
     x = int(0.5 * (word_dict["boundingPoly"]["vertices"][0]["x"] + word_dict["boundingPoly"]["vertices"][1]["x"]))
     y = int(0.5 * (word_dict["boundingPoly"]["vertices"][0]["y"] + word_dict["boundingPoly"]["vertices"][3]["y"]))
-    y -= int((x - origin_x) * coordinate_grad)
+    y += int((x - origin_x) * coordinate_grad)
 
     return [x, y]
 
@@ -91,7 +86,7 @@ def split_letter_digit(base_line, content):
 
     letters = []
 
-    left_line = content["textAnnotations"][0]["boundingPoly"]["vertices"][0]["x"] - 20
+    left_line = content["textAnnotations"][0]["boundingPoly"]["vertices"][0]["x"]
     right_line = content["textAnnotations"][0]["boundingPoly"]["vertices"][1]["x"]
 
     lines = np.arange(left_line, right_line, LINE_SPACING)
@@ -109,7 +104,9 @@ def split_letter_digit(base_line, content):
 
     for _json in content["textAnnotations"][1:]:
         if _json["boundingPoly"]["vertices"][0]["y"] > base_line and \
-                _json["boundingPoly"]["vertices"][1]["x"] < mid_line:
+                _json["boundingPoly"]["vertices"][0]["x"] < mid_line:
+            if abs(_json["boundingPoly"]["vertices"][0]["x"] - _json["boundingPoly"]["vertices"][1]["x"]) < 10:
+                continue
             letters.append(_json)
 
     return letters, mid_line
@@ -122,6 +119,8 @@ def calculate_bindings_line_word(words, y_line, x_line):
     for _json in words["textAnnotations"][1:]:
         if _json["boundingPoly"]["vertices"][0]["y"] < y_line:
             continue
+        elif abs(_json["boundingPoly"]["vertices"][0]["x"] - _json["boundingPoly"]["vertices"][1]["x"]) < 50:
+            continue
         elif _json["boundingPoly"]["vertices"][0]["x"] <= x_line <= _json["boundingPoly"]["vertices"][1]["x"]:
             bindings += 1
 
@@ -132,9 +131,25 @@ def calculate_bindings_line_word(words, y_line, x_line):
     return ret_val
 
 
+def calculate_image_gradient(grad_content):
+
+    total_grad = 0
+    cnt = 0
+    for _json in grad_content:
+        x_diff = abs(_json["boundingPoly"]["vertices"][0]["x"] - _json["boundingPoly"]["vertices"][1]["x"])
+        if x_diff == 0:
+            grad = 0
+        else:
+            grad = (_json["boundingPoly"]["vertices"][0]["y"] - _json["boundingPoly"]["vertices"][1]["y"]) / x_diff
+        total_grad += grad
+        cnt += 1
+
+    return total_grad / cnt
+
+
 if __name__ == '__main__':
-    path = "/media/mensa/Data/Task/ScannedOCR/temp/temp_2.jpg"
-    with open('/media/mensa/Data/Task/ScannedOCR/temp/temp_00004-ksh1987_r_temp_0.json') as f:
+    path = "/media/mensa/Data/Task/ScannedOCR/temp/temp_12.jpg"
+    with open('/media/mensa/Data/Task/ScannedOCR/temp/temp_00065-ksh1988l_temp_0.json') as f:
         json_content = json.load(f)
 
     name_ = extract_text_from_json(json_content_=json_content, path_=path, part_idx=0)

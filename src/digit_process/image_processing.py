@@ -42,7 +42,7 @@ def extract_table_line(frame_path, left, right, top, bottom):
     line_y = []
     for line in lines:
         x1, y1, x2, y2 = line[0]
-        if abs(x1 - x2) < 150:
+        if abs(x1 - x2) < 200:
             continue
         line_y.append(y2)
         cv2.line(crop_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
